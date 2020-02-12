@@ -62,6 +62,25 @@ def init_once():
                     "In order to send/recv CUDA arrays, Numba or RMM is required"
                 )
 
+import numba.cuda
+
+
+class PrimaryContext(object):
+    def __init__(self):
+        self.ctx = None
+
+    def __enter__(self):
+        ctx = numba.cuda.current_context()
+        primary_ctx = ctx.device.get_primary_context()
+        if ctx != primary_ctx:
+            print("WTF")
+            primary_ctx.push()
+            self.ctx = ctx  # Indicate that we should pop context on exit
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.ctx is not None:
+            self.ctx.pop()
+
 
 class UCX(Comm):
     """Comm object using UCP.
@@ -146,10 +165,11 @@ class UCX(Comm):
                     np.array([nbytes(f) for f in frames], dtype=np.uint64)
                 )
                 # Send frames
-                for frame in frames:
-                    if nbytes(frame) > 0:
-                        await self.ep.send(frame)
-                return sum(map(nbytes, frames))
+                with PrimaryContext():
+                    for frame in frames:
+                        if nbytes(frame) > 0:
+                            await self.ep.send(frame)
+                    return sum(map(nbytes, frames))
             except (ucp.exceptions.UCXBaseException):
                 self.abort()
                 raise CommClosedError("While writing, the connection was closed")
@@ -179,23 +199,24 @@ class UCX(Comm):
             else:
                 # Recv frames
                 frames = []
-                for is_cuda, size in zip(is_cudas.tolist(), sizes.tolist()):
-                    if size > 0:
-                        if is_cuda:
-                            frame = cuda_array(size)
+                with PrimaryContext():
+                    for is_cuda, size in zip(is_cudas.tolist(), sizes.tolist()):
+                        if size > 0:
+                            if is_cuda:
+                                frame = cuda_array(size)
+                            else:
+                                frame = np.empty(size, dtype=np.uint8)
+                            await self.ep.recv(frame)
+                            frames.append(frame)
                         else:
-                            frame = np.empty(size, dtype=np.uint8)
-                        await self.ep.recv(frame)
-                        frames.append(frame)
-                    else:
-                        if is_cuda:
-                            frames.append(cuda_array(size))
-                        else:
-                            frames.append(b"")
-                msg = await from_frames(
-                    frames, deserialize=self.deserialize, deserializers=deserializers
-                )
-                return msg
+                            if is_cuda:
+                                frames.append(cuda_array(size))
+                            else:
+                                frames.append(b"")
+                    msg = await from_frames(
+                        frames, deserialize=self.deserialize, deserializers=deserializers
+                    )
+                    return msg
 
     async def close(self):
         if self._ep is not None:
