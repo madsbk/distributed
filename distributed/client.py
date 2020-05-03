@@ -2497,12 +2497,41 @@ class Client(Node):
             }
             if values:
                 dsk = subs_multiple(dsk, values)
+            #print([(k,v) for k, v in dsk.items()])
+
+            dsk = {k: v for k, v in dsk.items()}
+
+            def tokey_dep(dep):
+                return tuple((tokey(d) for d in dep))
+
+            from .worker import dumps_task
+            import copy
+            import pickle
+            from dask.highlevelgraph import HighLevelGraph
+            print("\nupdate_graph - generate tasks:")
+            for k, v in dsk.copy().items():
+                if "all2all" in k:
+                    f = v[0]
+                    new_tasks, deps = f.get_tasks_and_deps()
+                    dsk.update(new_tasks)
+                    del dsk[k]
+
+            for k, v in dsk.items():
+                print(f"{repr(k)}: {repr(v)}")
+
+            #assert False
 
             d = {k: unpack_remotedata(v, byte_keys=True) for k, v in dsk.items()}
+
             extra_futures = set.union(*[v[1] for v in d.values()]) if d else set()
             extra_keys = {tokey(future.key) for future in extra_futures}
             dsk2 = str_graph({k: v[0] for k, v in d.items()}, extra_keys)
             dsk3 = {k: v for k, v in dsk2.items() if k is not v}
+
+            for k, v in dsk3.items():
+                print(f"{repr(k)}: {repr(v)}")
+            #assert False
+
             for future in extra_futures:
                 if future.client is not self:
                     msg = "Inputs contain futures that were created by another client."
@@ -2542,6 +2571,7 @@ class Client(Node):
                 retries = {k: retries for k in dsk3}
 
             futures = {key: Future(key, self, inform=False) for key in keyset}
+            print("*"*100)
             self._send_to_scheduler(
                 {
                     "op": "update-graph",

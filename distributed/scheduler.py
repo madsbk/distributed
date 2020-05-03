@@ -71,8 +71,10 @@ from .utils import (
     format_bytes,
     format_time,
     TimeoutError,
+    str_graph,
+    tokey,
 )
-from .utils_comm import scatter_to_workers, gather_from_workers, retry_operation
+from .utils_comm import scatter_to_workers, gather_from_workers, retry_operation, unpack_remotedata
 from .utils_perf import enable_gc_diagnosis, disable_gc_diagnosis
 from . import versions as version_module
 
@@ -1800,6 +1802,55 @@ class Scheduler(ServerNode):
             self.log_event(
                 ["all", client], {"action": "update_graph", "count": len(tasks)}
             )
+
+        # print("update_graph - dependencies:")
+        # for k, v in dependencies.items():
+        #     print(f"{k}: {v}")
+
+        # print("update_graph - tasks:")
+        # for k, v in tasks.items():
+        #     print(f"{k}")
+
+        def tokey_dep(dep):
+            return tuple((tokey(d) for d in dep))
+
+        # from .worker import dumps_task
+        # print("\nupdate_graph - generate tasks:")
+        # for k, v in tasks.copy().items():
+        #     if "all2all" in k:
+        #         f = pickle.loads(v["function"])
+        #         new_tasks, deps = f.get_tasks_and_deps()
+        #         new_tasks = str_graph(new_tasks)
+        #         deps = {tokey(kk): tokey_dep(vv) for kk, vv in deps.items()}
+        #         new_tasks = {k: unpack_remotedata(v, byte_keys=True) for k, v in new_tasks.items()}
+        #         new_tasks = str_graph({k: v[0] for k, v in new_tasks.items()})
+        #         new_tasks = {k: v for k, v in new_tasks.items() if k is not v}
+        #         # for k, v in new_tasks.items():
+        #         #      print(f"{repr(k)}: {repr(v)}")
+        #         #assert False
+
+        #         new_tasks = valmap(dumps_task, new_tasks)
+        #         tasks.update(new_tasks)
+        #         dependencies.update(deps)
+        #         del tasks[k]
+        #         del dependencies[k]
+
+
+                # for k, v in deps.items():
+                #     print(f"{k}: {v}")
+
+        #tasks.update(new_tasks)
+
+
+        # print("update_graph - dependencies:")
+        # for k, v in dependencies.items():
+        #     print(f"{repr(k)}: {repr(v)}")
+        # assert False
+        # print("update_graph - tasks:")
+        # for k, v in tasks.items():
+        #     #print(f"{k}: {v}")
+        #     print(f"{repr(k)}")
+        # #assert False
 
         # Remove aliases
         for k in list(tasks):
