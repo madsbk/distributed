@@ -1790,6 +1790,7 @@ class Scheduler(ServerNode):
         actors=None,
         fifo_timeout=0,
     ):
+        print("update_graph(): ", time())
         """
         Add new computations to the internal dask graph
 

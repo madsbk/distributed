@@ -2500,7 +2500,7 @@ class Client(Node):
                 dsk = subs_multiple(dsk, values)
             #print([(k,v) for k, v in dsk.items()])
 
-            dsk = {k: v for k, v in dsk.items()}
+            dsk = {k: v for k, v in sorted(dsk.items(), key=lambda x: tokey(x[0]))}
 
             def tokey_dep(dep):
                 return tuple((tokey(d) for d in dep))
@@ -2579,8 +2579,7 @@ class Client(Node):
                 retries = {k: retries for k in dsk3}
 
             futures = {key: Future(key, self, inform=False) for key in keyset}
-            t2 = time()
-            print("_send_to_scheduler(): ", t2 -t1)
+            print("_send_to_scheduler(): ", time())
             self._send_to_scheduler(
                 {
                     "op": "update-graph",
