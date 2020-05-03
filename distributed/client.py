@@ -2498,32 +2498,39 @@ class Client(Node):
             }
             if values:
                 dsk = subs_multiple(dsk, values)
+
+
+            # for k, v in dsk.items():
+            #     print(f"{repr(k)}: {repr(v)}")
+            # print("*"*100)
+
+
             #print([(k,v) for k, v in dsk.items()])
 
             #dsk = {k: v for k, v in sorted(dsk.items(), key=lambda x: tokey(x[0]))}
             #dsk = {k: v for k, v in dsk.items()}
 
-            def tokey_dep(dep):
-                return tuple((tokey(d) for d in dep))
+            # def tokey_dep(dep):
+            #     return tuple((tokey(d) for d in dep))
 
-            from .worker import dumps_task
-            import copy
-            import pickle
-            from dask.highlevelgraph import HighLevelGraph
-            print("_graph_to_futures() - len(dsk):", len(dsk))
-            d = {}
-            ignore_keys = []
-            for k, v in dsk.items():
-                if "all2all" in k:
-                    f = v[0]
-                    new_tasks, deps = f.get_tasks_and_deps()
-                    print("len(new_tasks):", len(new_tasks))
-                    d.update(new_tasks)
-                    ignore_keys.extend(f.output_keys)
-                elif k not in ignore_keys:
-                    d[k] = v
-            dsk = d
-            print("_graph_to_futures - generate tasks FINISHED")
+            # from .worker import dumps_task
+            # import copy
+            # import pickle
+            # from dask.highlevelgraph import HighLevelGraph
+            # print("_graph_to_futures() - len(dsk):", len(dsk))
+            # d = {}
+            # ignore_keys = []
+            # for k, v in dsk.items():
+            #     if "all2all" in k:
+            #         f = v[0]
+            #         new_tasks, deps = f.get_tasks_and_deps()
+            #         print("len(new_tasks):", len(new_tasks))
+            #         d.update(new_tasks)
+            #         ignore_keys.extend(f.output_keys)
+            #     elif k not in ignore_keys:
+            #         d[k] = v
+            # dsk = d
+            # print("_graph_to_futures - generate tasks FINISHED")
 
             #dsk = {k: v for k, v in sorted(dsk.items(), key=lambda x: tokey(x[0]))}
 
@@ -2541,28 +2548,11 @@ class Client(Node):
 
             # #assert False
 
-            d = {k: unpack_remotedata(v, byte_keys=True) for k, v in dsk.items()}
+            tt1 = time()
 
+            d = {k: unpack_remotedata(v, byte_keys=True) for k, v in dsk.items()}
             extra_futures = set.union(*[v[1] for v in d.values()]) if d else set()
             extra_keys = {tokey(future.key) for future in extra_futures}
-            dsk2 = str_graph({k: v[0] for k, v in d.items()}, extra_keys)
-            dsk3 = {k: v for k, v in dsk2.items() if k is not v}
-
-            # for k, v in dsk3.items():
-            #     print(f"{repr(k)}: {repr(v)}")
-            #assert False
-
-            for future in extra_futures:
-                if future.client is not self:
-                    msg = "Inputs contain futures that were created by another client."
-                    raise ValueError(msg)
-
-            if restrictions:
-                restrictions = keymap(tokey, restrictions)
-                restrictions = valmap(list, restrictions)
-
-            if loose_restrictions is not None:
-                loose_restrictions = list(map(tokey, loose_restrictions))
 
             future_dependencies = {
                 tokey(k): {tokey(f.key) for f in v[1]} for k, v in d.items()
@@ -2573,7 +2563,7 @@ class Client(Node):
                     if v not in self.futures:
                         raise CancelledError(v)
 
-            dependencies = {k: get_dependencies(dsk, k) for k in dsk}
+            dependencies = {k: get_dependencies(dsk, k) for k in d}
 
             if priority is None:
                 priority = dask.order.order(dsk, dependencies=dependencies)
@@ -2587,8 +2577,110 @@ class Client(Node):
                 if deps:
                     dependencies[k] = list(set(dependencies.get(k, ())) | deps)
 
+            from .worker import dumps_task
+            import copy
+            import pickle
+            from dask.highlevelgraph import HighLevelGraph
+
+            def tokey_dep(dep):
+                return [tokey(d) for d in dep]
+
+            print("_graph_to_futures() - len(dsk):", len(dsk))
+            newd = {}
+            ignore_keys = []
+            for k, v in d.items():
+                if "all2all" in k:
+                    f = v[0][0]
+                    new_tasks, deps = f.get_tasks_and_deps()
+                    deps = {tokey(kk): tokey_dep(vv) for kk, vv in deps.items()}
+                    dependencies.update(deps)
+                    del dependencies[k]
+                    print("len(new_tasks):", len(new_tasks))
+                    new_tasks = {k: (v,) for k, v in new_tasks.items()}
+                    newd.update(new_tasks)
+                    ignore_keys.extend(f.output_keys)
+                elif k not in ignore_keys:
+                    newd[k] = v
+            d = newd
+
+
+            tt2 = time()
+            print(tt2 - tt1)
+
+
+            dsk2 = str_graph({k: v[0] for k, v in d.items()}, extra_keys)
+            dsk3 = {k: v for k, v in dsk2.items() if k is not v}
+
+
+            # for k, v in dsk3.items():
+            #     print(f"{repr(k)}: {repr(v)}")
+            # assert False
+
+            tt3 = time()
+            print(tt3 - tt2)
+
+            def tokey_dep(dep):
+                return tuple((tokey(d) for d in dep))
+
+            from .worker import dumps_task
+            import copy
+            import pickle
+            from dask.highlevelgraph import HighLevelGraph
+
+
+            # for k, v in dsk3.items():
+            #     print(f"{repr(k)}: {repr(v)}")
+
+            # print("_graph_to_futures() - len(dsk):", len(dsk))
+            # d = {}
+            # ignore_keys = []
+            # for k, v in dsk3.items():
+            #     if "all2all" in k:
+            #         f = v[0]
+            #         new_tasks, deps = f.get_tasks_and_deps()
+            #         #deps = {tokey(kk): tokey_dep(vv) for kk, vv in deps.items()}
+            #         #dependencies.update(deps)
+            #         #del dependencies[k]
+
+            #         new_tasks = {k: unpack_remotedata(v, byte_keys=True) for k, v in new_tasks.items()}
+            #         new_tasks = str_graph({k: v[0] for k, v in new_tasks.items()})
+            #         new_tasks = {k: v for k, v in new_tasks.items() if k is not v}
+            #         print("len(new_tasks):", len(new_tasks))
+            #         d.update(new_tasks)
+            #         ignore_keys.extend(tokey_dep(f.output_keys))
+            #     elif k not in ignore_keys:
+            #         d[k] = v
+            # dsk3 = d
+
+            # for k, v in dsk3.items():
+            #     print(f"{repr(k)}: {repr(v)}")
+            # assert False
+
+            for future in extra_futures:
+                if future.client is not self:
+                    msg = "Inputs contain futures that were created by another client."
+                    raise ValueError(msg)
+
+            if restrictions:
+                restrictions = keymap(tokey, restrictions)
+                restrictions = valmap(list, restrictions)
+
+            if loose_restrictions is not None:
+                loose_restrictions = list(map(tokey, loose_restrictions))
+
+
+
+            tt4 = time()
+            print(tt4 - tt3)
+
             if isinstance(retries, Number) and retries > 0:
                 retries = {k: retries for k in dsk3}
+
+
+            print("_graph_to_futures - generate tasks FINISHED")
+
+
+
 
             futures = {key: Future(key, self, inform=False) for key in keyset}
             print("_send_to_scheduler(): ", time())
