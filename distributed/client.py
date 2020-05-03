@@ -2500,7 +2500,8 @@ class Client(Node):
                 dsk = subs_multiple(dsk, values)
             #print([(k,v) for k, v in dsk.items()])
 
-            dsk = {k: v for k, v in sorted(dsk.items(), key=lambda x: tokey(x[0]))}
+            #dsk = {k: v for k, v in sorted(dsk.items(), key=lambda x: tokey(x[0]))}
+            #dsk = {k: v for k, v in dsk.items()}
 
             def tokey_dep(dep):
                 return tuple((tokey(d) for d in dep))
@@ -2510,14 +2511,25 @@ class Client(Node):
             import pickle
             from dask.highlevelgraph import HighLevelGraph
             print("_graph_to_futures() - len(dsk):", len(dsk))
-            for k, v in dsk.copy().items():
+            d = {}
+            ignore_keys = []
+            for k, v in dsk.items():
                 if "all2all" in k:
                     f = v[0]
                     new_tasks, deps = f.get_tasks_and_deps()
                     print("len(new_tasks):", len(new_tasks))
-                    dsk.update(new_tasks)
-                    del dsk[k]
+                    d.update(new_tasks)
+                    ignore_keys.extend(f.output_keys)
+                elif k not in ignore_keys:
+                    d[k] = v
+            dsk = d
             print("_graph_to_futures - generate tasks FINISHED")
+
+            #dsk = {k: v for k, v in sorted(dsk.items(), key=lambda x: tokey(x[0]))}
+
+            # for k, v in dsk.items():
+            #     print(f"{k}: {v}")
+
 
             # for k, v in dsk.items():
             #     #print(f"{repr(k)}: {repr(v)}")
