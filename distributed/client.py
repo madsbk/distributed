@@ -2474,6 +2474,7 @@ class Client(Node):
         actors=None,
     ):
         with self._refcount_lock:
+            t1 = time()
             if resources:
                 resources = self._expand_resources(
                     resources, all_keys=itertools.chain(dsk, keys)
@@ -2519,9 +2520,14 @@ class Client(Node):
             print("_graph_to_futures - generate tasks FINISHED")
 
             # for k, v in dsk.items():
-            #     print(f"{repr(k)}: {repr(v)}")
+            #     #print(f"{repr(k)}: {repr(v)}")
+            #     #print(f"{repr(k)}")
+            #     for vv in v:
+            #         if "all2all"
 
-            #assert False
+            #     assert "all2all" not in k
+
+            # #assert False
 
             d = {k: unpack_remotedata(v, byte_keys=True) for k, v in dsk.items()}
 
@@ -2573,7 +2579,8 @@ class Client(Node):
                 retries = {k: retries for k in dsk3}
 
             futures = {key: Future(key, self, inform=False) for key in keyset}
-            print("*"*100)
+            t2 = time()
+            print("_send_to_scheduler(): ", t2 -t1)
             self._send_to_scheduler(
                 {
                     "op": "update-graph",
