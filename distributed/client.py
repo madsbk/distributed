@@ -2508,16 +2508,18 @@ class Client(Node):
             import copy
             import pickle
             from dask.highlevelgraph import HighLevelGraph
-            print("\nupdate_graph - generate tasks:")
+            print("_graph_to_futures() - len(dsk):", len(dsk))
             for k, v in dsk.copy().items():
                 if "all2all" in k:
                     f = v[0]
                     new_tasks, deps = f.get_tasks_and_deps()
+                    print("len(new_tasks):", len(new_tasks))
                     dsk.update(new_tasks)
                     del dsk[k]
+            print("_graph_to_futures - generate tasks FINISHED")
 
-            for k, v in dsk.items():
-                print(f"{repr(k)}: {repr(v)}")
+            # for k, v in dsk.items():
+            #     print(f"{repr(k)}: {repr(v)}")
 
             #assert False
 
@@ -2528,8 +2530,8 @@ class Client(Node):
             dsk2 = str_graph({k: v[0] for k, v in d.items()}, extra_keys)
             dsk3 = {k: v for k, v in dsk2.items() if k is not v}
 
-            for k, v in dsk3.items():
-                print(f"{repr(k)}: {repr(v)}")
+            # for k, v in dsk3.items():
+            #     print(f"{repr(k)}: {repr(v)}")
             #assert False
 
             for future in extra_futures:

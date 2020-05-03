@@ -1802,7 +1802,7 @@ class Scheduler(ServerNode):
             self.log_event(
                 ["all", client], {"action": "update_graph", "count": len(tasks)}
             )
-
+        print("update_graph() - len(tasks): ", len(tasks))
         # print("update_graph - dependencies:")
         # for k, v in dependencies.items():
         #     print(f"{k}: {v}")
@@ -2064,6 +2064,7 @@ class Scheduler(ServerNode):
             self.digests["update-graph-duration"].add(end - start)
 
         # TODO: balance workers
+        print("update_graph() - FINISHED took: ", end - start)
 
     def new_task(self, key, spec, state):
         """ Create a new task, and associated states """
