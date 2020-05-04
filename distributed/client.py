@@ -2611,7 +2611,7 @@ class Client(Node):
                     ignore_keys.extend([tokey(o) for o in f.output_keys])
                 elif k not in ignore_keys:
                     newd[k] = v
-            print("ignore_keys: ", ignore_keys)
+            #print("ignore_keys: ", ignore_keys)
             dsk3 = newd
 
 
