@@ -1823,7 +1823,8 @@ class Scheduler(ServerNode):
         for k, v in tasks.items():
             if "all2all" in k:
                 f = pickle.loads(v["function"])
-                new_tasks, deps = f.get_tasks_and_deps()
+                all2all_prio = 0 if priority is None else priority.get(k, 0)
+                new_tasks, deps, prio = f.get_tasks(priority=all2all_prio)
                 #deps = {tokey(kk): tokey_dep(vv) for kk, vv in deps.items()}
                 dependencies.update(deps)
                 del dependencies[k]
@@ -1832,11 +1833,21 @@ class Scheduler(ServerNode):
                 new_tasks = valmap(dumps_task, new_tasks)
                 newd.update(new_tasks)
                 ignore_keys.extend([tokey(o) for o in f.output_keys])
+                if priority:
+                    del priority[k]
+                    priority.update(prio)
+
             elif k not in ignore_keys:
                 newd[k] = v
         tasks = newd
         t2 = time()
         print(f"update_graph() - generating {len(new_tasks)} tasks took: {t2 - t1}")
+
+
+        print("priority:")
+        for k, v in priority.items():
+            print(f"{k}: {v}")
+
 
 
         # from .worker import dumps_task
