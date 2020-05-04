@@ -2607,6 +2607,9 @@ class Client(Node):
             futures = {key: Future(key, self, inform=False) for key in keyset}
             print("_send_to_scheduler(): ", time())
 
+            # for k, v in dsk3.items():
+            #     print(f"{k}: {v}")
+
 
 
             # from .worker import dumps_task

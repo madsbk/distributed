@@ -1825,7 +1825,6 @@ class Scheduler(ServerNode):
                 f = pickle.loads(v["function"])
                 all2all_prio = 0 if priority is None else priority.get(k, 0)
                 new_tasks, deps, prio = f.get_tasks(priority=all2all_prio)
-                #deps = {tokey(kk): tokey_dep(vv) for kk, vv in deps.items()}
                 dependencies.update(deps)
                 del dependencies[k]
                 print("len(new_tasks):", len(new_tasks))
@@ -1844,9 +1843,7 @@ class Scheduler(ServerNode):
         print(f"update_graph() - generating {len(new_tasks)} tasks took: {t2 - t1}")
 
 
-        print("priority:")
-        for k, v in priority.items():
-            print(f"{k}: {v}")
+
 
 
 
