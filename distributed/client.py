@@ -2609,27 +2609,27 @@ class Client(Node):
 
 
 
-            from .worker import dumps_task
-            import copy
-            import pickle
-            from dask.highlevelgraph import HighLevelGraph
-            print("_graph_to_futures() - len(dsk):", len(dsk))
-            newd = {}
-            ignore_keys = []
-            for k, v in dsk3.items():
-                if "all2all" in k:
-                    f = v[0]
-                    new_tasks, deps = f.get_tasks_and_deps()
-                    #deps = {tokey(kk): tokey_dep(vv) for kk, vv in deps.items()}
-                    dependencies.update(deps)
-                    del dependencies[k]
-                    print("len(new_tasks):", len(new_tasks))
-                    print("new_tasks.keys(): ", new_tasks.keys())
-                    newd.update(new_tasks)
-                    ignore_keys.extend([tokey(o) for o in f.output_keys])
-                elif k not in ignore_keys:
-                    newd[k] = v
-            dsk3 = newd
+            # from .worker import dumps_task
+            # import copy
+            # import pickle
+            # from dask.highlevelgraph import HighLevelGraph
+            # print("_graph_to_futures() - len(dsk):", len(dsk))
+            # newd = {}
+            # ignore_keys = []
+            # for k, v in dsk3.items():
+            #     if "all2all" in k:
+            #         f = v[0]
+            #         new_tasks, deps = f.get_tasks_and_deps()
+            #         #deps = {tokey(kk): tokey_dep(vv) for kk, vv in deps.items()}
+            #         dependencies.update(deps)
+            #         del dependencies[k]
+            #         print("len(new_tasks):", len(new_tasks))
+            #         print("new_tasks.keys(): ", new_tasks.keys())
+            #         newd.update(new_tasks)
+            #         ignore_keys.extend([tokey(o) for o in f.output_keys])
+            #     elif k not in ignore_keys:
+            #         newd[k] = v
+            # dsk3 = newd
 
 
             self._send_to_scheduler(

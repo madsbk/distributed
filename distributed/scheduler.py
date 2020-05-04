@@ -1812,8 +1812,32 @@ class Scheduler(ServerNode):
         # for k, v in tasks.items():
         #     print(f"{k}")
 
-        def tokey_dep(dep):
-            return tuple((tokey(d) for d in dep))
+
+        t1 = time()
+        from .worker import dumps_task
+        import copy
+        import pickle
+        from dask.highlevelgraph import HighLevelGraph
+        newd = {}
+        ignore_keys = []
+        for k, v in tasks.items():
+            if "all2all" in k:
+                f = pickle.loads(v["function"])
+                new_tasks, deps = f.get_tasks_and_deps()
+                #deps = {tokey(kk): tokey_dep(vv) for kk, vv in deps.items()}
+                dependencies.update(deps)
+                del dependencies[k]
+                print("len(new_tasks):", len(new_tasks))
+                #print("new_tasks.keys(): ", new_tasks.keys())
+                new_tasks = valmap(dumps_task, new_tasks)
+                newd.update(new_tasks)
+                ignore_keys.extend([tokey(o) for o in f.output_keys])
+            elif k not in ignore_keys:
+                newd[k] = v
+        tasks = newd
+        t2 = time()
+        print(f"update_graph() - generating {len(new_tasks)} tasks took: {t2 - t1}")
+
 
         # from .worker import dumps_task
         # print("\nupdate_graph - generate tasks:")
