@@ -2585,31 +2585,40 @@ class Client(Node):
             def tokey_dep(dep):
                 return [tokey(d) for d in dep]
 
+            def tokey_task(task, dsk):
+                return tuple(tokey(d) for d in task[1:])
+
+
+            dsk2 = str_graph({k: v[0] for k, v in d.items()}, extra_keys)
+            dsk3 = {k: v for k, v in dsk2.items() if k is not v}
+
             print("_graph_to_futures() - len(dsk):", len(dsk))
             newd = {}
             ignore_keys = []
-            for k, v in d.items():
+            for k, v in dsk3.items():
                 if "all2all" in k:
-                    f = v[0][0]
+                    f = v[0]
                     new_tasks, deps = f.get_tasks_and_deps()
-                    deps = {tokey(kk): tokey_dep(vv) for kk, vv in deps.items()}
+                    #deps = {tokey(kk): tokey_dep(vv) for kk, vv in deps.items()}
                     dependencies.update(deps)
                     del dependencies[k]
                     print("len(new_tasks):", len(new_tasks))
-                    new_tasks = {k: (v,) for k, v in new_tasks.items()}
+                    #new_tasks = {k: (v,) for k, v in new_tasks.items()}
+                    #new_tasks = {tokey(k): tokey_task(v) for k, v in new_tasks.items()}
+                    #newd.update(str_graph(new_tasks, itertools.chain(new_tasks.keys(), f.input_keys)))
+                    print("new_tasks.keys(): ", new_tasks.keys())
                     newd.update(new_tasks)
-                    ignore_keys.extend(f.output_keys)
+                    ignore_keys.extend([tokey(o) for o in f.output_keys])
                 elif k not in ignore_keys:
                     newd[k] = v
-            d = newd
+            print("ignore_keys: ", ignore_keys)
+            dsk3 = newd
 
 
             tt2 = time()
             print(tt2 - tt1)
 
 
-            dsk2 = str_graph({k: v[0] for k, v in d.items()}, extra_keys)
-            dsk3 = {k: v for k, v in dsk2.items() if k is not v}
 
 
             # for k, v in dsk3.items():
