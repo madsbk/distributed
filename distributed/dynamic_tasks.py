@@ -20,12 +20,15 @@ def dynshuffle_kernel(df, npartitions, kernel_token, rearguard_token, col):
     myid = int(myself.split(",")[1][:-1])
     parts = [str((kernel_token[1:], i)) for i in range(npartitions)]
     rearguard = str((rearguard_token[1:], myid))
+    # parts = [myself.replace(", %d)" % myid, ", %d)" % i) for i in range(npartitions)]
 
-    print(
-        f"[{worker.address}] kernel() - myid: {myid}, key: {repr(myself)}, parts: {parts}, rearguard: {rearguard}"
+    # print(
+    #     f"[{worker.address}] kernel() - myid: {myid}, key: {repr(myself)}, parts: {parts}, rearguard: {rearguard}"
+    # )
+
+    groups = shuffle_group(
+        df, col, 0, len(parts), len(parts), ignore_index=False, nfinal=len(parts)
     )
-
-    groups = shuffle_group(df, col, 0, len(parts), len(parts), ignore_index=False)
     assert len(groups) == len(parts)
 
     new_tasks = []
@@ -58,13 +61,17 @@ def dynshuffle_kernel(df, npartitions, kernel_token, rearguard_token, col):
 
     return groups
 
+
 def dummy_func():
     pass
+
 
 def rearrange_by_column_dynamic_tasks(
     df, column, max_branch=32, npartitions=None, ignore_index=False
 ):
-    kernel_token = "dynshuffle-%s" % tokenize(df, column, max_branch, npartitions, ignore_index)
+    kernel_token = "dynshuffle-%s" % tokenize(
+        df, column, max_branch, npartitions, ignore_index
+    )
     rearguard_token = "rearguard_%s" % kernel_token
     res = df.map_partitions(
         dynshuffle_kernel,
@@ -76,6 +83,5 @@ def rearrange_by_column_dynamic_tasks(
         full_token=kernel_token,
     )
     res = res.map_partitions(dummy_func, meta=res._meta, full_token=rearguard_token)
+    print("HEJ")
     return res
-
-

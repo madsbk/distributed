@@ -1401,13 +1401,12 @@ class Scheduler(ServerNode):
         rearguard_key=None,
         rearguard_input=None,
     ):
-        print(f"extend_current_task() - cur_key: {cur_key}, new_tasks: {new_tasks}, rearguard_key: {rearguard_key}, rearguard_input: {rearguard_input}")
+        # print(f"extend_current_task() - cur_key: {cur_key}, new_tasks: {new_tasks}, rearguard_key: {rearguard_key}, rearguard_input: {rearguard_input}")
 
         recomendations = {}
         cur_ts = self.tasks[cur_key]
         cur_dependents = list(cur_ts.dependents)
         rearguard_ts = self.tasks[rearguard_key]
-        print("cur_ts.dependents: ", cur_ts.dependents)
         assert rearguard_ts in cur_ts.dependents
 
         # Create new tasks
