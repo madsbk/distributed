@@ -85,6 +85,7 @@ from .event import EventExtension
 from .pubsub import PubSubSchedulerExtension
 from .stealing import WorkStealing
 from .variable import VariableExtension
+from .worker import dumps_task
 
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,10 @@ DEFAULT_EXTENSIONS = [
 ]
 
 ALL_TASK_STATES = {"released", "waiting", "no-worker", "processing", "erred", "memory"}
+
+
+def noop(x):
+    return x
 
 
 class ClientState:
@@ -670,6 +675,12 @@ class TaskState:
         self.dependencies.add(other)
         self.group.dependencies.add(other.group)
         other.dependents.add(self)
+
+    def discard_dependency(self, other: "TaskState"):
+        """ Remove dependency from this task """
+        self.dependencies.discard(other)
+        self.group.dependencies.discard(other.group)
+        other.dependents.discard(self)
 
     def get_nbytes(self) -> int:
         nbytes = self.nbytes
@@ -1269,6 +1280,7 @@ class Scheduler(ServerNode):
             "long-running": self.handle_long_running,
             "reschedule": self.reschedule,
             "keep-alive": lambda *args, **kwargs: None,
+            "extend_current_task": self.extend_current_task,
         }
 
         client_handlers = {
@@ -1323,6 +1335,8 @@ class Scheduler(ServerNode):
             "adaptive_target": self.adaptive_target,
             "workers_to_close": self.workers_to_close,
             "subscribe_worker_status": self.subscribe_worker_status,
+            "subscribe_worker_status": self.subscribe_worker_status,
+            "extend_current_task": self.extend_current_task,
         }
 
         self._transitions = {
@@ -1377,6 +1391,61 @@ class Scheduler(ServerNode):
     ##################
     # Administration #
     ##################
+
+
+    def extend_current_task(
+        self,
+        comm=None,
+        cur_key=None,
+        new_tasks=None,
+        rearguard_key=None,
+        rearguard_input=None,
+    ):
+        print(f"extend_current_task() - cur_key: {cur_key}, new_tasks: {new_tasks}, rearguard_key: {rearguard_key}, rearguard_input: {rearguard_input}")
+
+        recomendations = {}
+        cur_ts = self.tasks[cur_key]
+        cur_dependents = list(cur_ts.dependents)
+        rearguard_ts = self.tasks[rearguard_key]
+        print("cur_ts.dependents: ", cur_ts.dependents)
+        assert rearguard_ts in cur_ts.dependents
+
+        # Create new tasks
+        for task in new_tasks:
+            key = task["key"]
+            assert key not in self.tasks
+            ts = self.new_task(key, task["task"], "released")
+            priority = task.get("priority")
+            if priority is not None:
+                ts.priority = (self.generation, priority)
+            else:
+                ts.priority = cur_ts.priority
+            recomendations[key] = "waiting"
+            for dep in task["deps"]:
+                ts.add_dependency(self.tasks[dep])
+
+        # Remove the rearguard as a dependents of the current task
+        rearguard_ts.discard_dependency(cur_ts)
+        rearguard_ts.waiting_on.discard(cur_ts)
+        cur_ts.waiters.discard(rearguard_ts)
+
+        # Set the dependency and function input of the rearguard
+        ts = self.tasks[rearguard_input]
+        rearguard_ts.add_dependency(ts)
+        if rearguard_ts._state == "waiting":
+            rearguard_ts.waiting_on.add(ts)
+            ts.waiters.add(rearguard_ts)
+        rearguard_ts.run_spec = dumps_task((noop, rearguard_input))
+
+        # Finally transition all recomendations
+        self.transitions(recomendations)
+
+        # print("*"*100)
+        # for ts in self.tasks.values():
+        #     print(f"{ts} - deps1: {ts.dependencies}, deps2: {ts.dependents}")
+        # print("*"*100)
+        # print("*"*100)
+
 
     def __repr__(self):
         return '<Scheduler: "%s" processes: %d cores: %d>' % (
