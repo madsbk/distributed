@@ -1401,6 +1401,26 @@ class Scheduler(ServerNode):
         rearguard_key=None,
         rearguard_input=None,
     ):
+        """
+        Insert new tasks immediately after a running task.
+
+        Parameters
+        ----------
+        comm:
+            Ignored, needed by the RPC call
+        cur_key : str
+            The key of the currently running the new tasks will be inserted after.
+        new_tasks : list[dict]
+            Dictionaries of tasks, which should contain the following information:
+                - "key": the key of the task
+                - "deps": list of dependencies of the task
+                - "task": the Dask task (serialized)
+        rearguard_key : str
+            The key of the rearguard
+        rearguard_input: str
+            The input keys for the rearguard
+        """
+
         # print(f"extend_current_task() - cur_key: {cur_key}, new_tasks: {new_tasks}, rearguard_key: {rearguard_key}, rearguard_input: {rearguard_input}")
 
         recomendations = {}
