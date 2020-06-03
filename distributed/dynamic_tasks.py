@@ -78,7 +78,7 @@ def rearrange_by_column_dynamic_tasks(
         npartitions=df.npartitions,
         kernel_token="_%s" % kernel_token,
         rearguard_token="_%s" % rearguard_token,
-        col="_partitions",
+        col=column,
         meta=df._meta,
         full_token=kernel_token,
     )
