@@ -9,21 +9,77 @@ import dask
 from dask.datasets import timeseries
 from dask.dataframe.shuffle import shuffle, partitioning_index, shuffle_group, _concat
 from dask.dataframe import _Frame
+from dask.dataframe.core import new_dd_object
 import time
 from operator import getitem
+from dask.highlevelgraph import HighLevelGraph
 
 
-def dynshuffle_kernel(df, npartitions, kernel_token, rearguard_token, col):
+def _dummy_func():
+    pass
+
+
+def _apply_func(func, df, func_parts_encoded, rearguard_encoded, kwargs):
+    parts = [k[1:] for k in func_parts_encoded]
+    rearguard = rearguard_encoded[1:]
+    return func(df, parts, rearguard, **kwargs)
+
+
+def dd_dynamic_tasks_map(func, ddf, meta, name, **kwargs):
+    n = ddf.npartitions
+    token = tokenize(ddf, func)
+    name = "%s-%s" % (name, token)
+    df_parts = [(ddf._name, i) for i in range(n)]
+    func_parts = [(name, i) for i in range(n)]
+    func_parts_encoded = ["_" + str(k) for k in func_parts]
+    rearguard_parts = [("rearguard_" + name, i) for i in range(n)]
+
+    layer = {}
+    for func_part, rearguard_part, df_part in zip(
+        func_parts, rearguard_parts, df_parts
+    ):
+        layer[func_part] = (
+            _apply_func,
+            func,
+            df_part,
+            func_parts_encoded,
+            "_" + str(rearguard_part),
+            kwargs,
+        )
+
+    ddf2 = new_dd_object(
+        HighLevelGraph.from_collections(name, layer, dependencies=[ddf]),
+        name,
+        ddf._meta,
+        ddf.divisions,
+    )
+
+    layer = {}
+    for func_part, rearguard_part, df_part in zip(
+        func_parts, rearguard_parts, df_parts
+    ):
+        layer[rearguard_part] = (_dummy_func, func_part)
+
+    ddf3 = new_dd_object(
+        HighLevelGraph.from_collections(
+            "rearguard_" + name, layer, dependencies=[ddf2]
+        ),
+        "rearguard_" + name,
+        ddf2._meta,
+        ddf.divisions,
+    )
+    print("HEJ")
+    return ddf3
+
+
+def dynshuffle_kernel(df, parts, rearguard, col):
     worker = get_worker()
     client = get_client()
     myself = worker.get_current_task()
-    myid = int(myself.split(",")[1][:-1])
-    parts = [str((kernel_token[1:], i)) for i in range(npartitions)]
-    rearguard = str((rearguard_token[1:], myid))
-    # parts = [myself.replace(", %d)" % myid, ", %d)" % i) for i in range(npartitions)]
+    assert myself in parts
 
     # print(
-    #     f"[{worker.address}] kernel() - myid: {myid}, key: {repr(myself)}, parts: {parts}, rearguard: {rearguard}"
+    #     f"[{worker.address}] _apply_func() - key: {repr(myself)}, df: {type(df)}, parts: {parts}, rearguard: {rearguard}, col: {repr(col)}"
     # )
 
     groups = shuffle_group(
@@ -62,26 +118,10 @@ def dynshuffle_kernel(df, npartitions, kernel_token, rearguard_token, col):
     return groups
 
 
-def dummy_func():
-    pass
-
-
 def rearrange_by_column_dynamic_tasks(
     df, column, max_branch=32, npartitions=None, ignore_index=False
 ):
-    kernel_token = "dynshuffle-%s" % tokenize(
-        df, column, max_branch, npartitions, ignore_index
+    print(f"rearrange_by_column_dynamic_tasks() - column: {column}, \nddf: {df.compute()}")
+    return dd_dynamic_tasks_map(
+        dynshuffle_kernel, df, df._meta, "dynshuffle", col=column
     )
-    rearguard_token = "rearguard_%s" % kernel_token
-    res = df.map_partitions(
-        dynshuffle_kernel,
-        npartitions=df.npartitions,
-        kernel_token="_%s" % kernel_token,
-        rearguard_token="_%s" % rearguard_token,
-        col=column,
-        meta=df._meta,
-        full_token=kernel_token,
-    )
-    res = res.map_partitions(dummy_func, meta=res._meta, full_token=rearguard_token)
-    print("HEJ")
-    return res

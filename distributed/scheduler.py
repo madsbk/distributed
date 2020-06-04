@@ -1421,6 +1421,12 @@ class Scheduler(ServerNode):
             The input keys for the rearguard
         """
 
+        # print("*"*100)
+        # for ts in self.tasks.values():
+        #     print(f"{ts} - deps1: {ts.dependencies}, deps2: {ts.dependents}")
+        # print("*"*100)
+        # print("*"*100)
+
         # print(f"extend_current_task() - cur_key: {cur_key}, new_tasks: {new_tasks}, rearguard_key: {rearguard_key}, rearguard_input: {rearguard_input}")
 
         recomendations = {}
