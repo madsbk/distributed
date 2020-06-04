@@ -32,12 +32,12 @@ def dynshuffle_kernel(df, npartitions, kernel_token, rearguard_token, col):
     assert len(groups) == len(parts)
 
     new_tasks = []
-    for i, part in enumerate(parts):
+    for part in parts:
         new_tasks.append(
             {
                 "key": f"shuffle_getitem_{myself}_{part}",
                 "deps": [part],
-                "task": dumps_task((getitem, part, i)),
+                "task": dumps_task((getitem, part, myid)),
                 "priority": 0,
             }
         )
