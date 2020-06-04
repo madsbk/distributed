@@ -186,10 +186,11 @@ def rearrange_by_column_dynamic_tasks(
 ):
     print(f"rearrange_by_column_dynamic_tasks() - column: {column}, \nddf: {df.compute()}")
 
+    token = tokenize(df, column, max_branch, npartitions, ignore_index)
     delayed_df = df.to_delayed()
     delayed_kernel = dask.delayed(kernel)
     rearguard = dask.delayed(noop)
-    kernel_names = ["shuffle_%d" % i for i in range(len(delayed_df))]
+    kernel_names = [f"shuffle_{i}_{token}" for i in range(len(delayed_df))]
     kernel_names_encoded = ["_shuffle_%d" % i for i in range(len(delayed_df))]
     rearguard_names_encoded = ["%s_rearguard" % k for k in kernel_names_encoded]
 
