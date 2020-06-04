@@ -1427,7 +1427,7 @@ class Scheduler(ServerNode):
         # print("*"*100)
         # print("*"*100)
 
-        # print(f"extend_current_task() - cur_key: {cur_key}, new_tasks: {new_tasks}, rearguard_key: {rearguard_key}, rearguard_input: {rearguard_input}")
+        print(f"extend_current_task() - cur_key: {cur_key}, new_tasks: {new_tasks}, rearguard_key: {rearguard_key}, rearguard_input: {rearguard_input}")
 
         recomendations = {}
         cur_ts = self.tasks[cur_key]
@@ -1465,11 +1465,11 @@ class Scheduler(ServerNode):
         # Finally transition all recomendations
         self.transitions(recomendations)
 
-        # print("*"*100)
-        # for ts in self.tasks.values():
-        #     print(f"{ts} - deps1: {ts.dependencies}, deps2: {ts.dependents}")
-        # print("*"*100)
-        # print("*"*100)
+        print("*"*100)
+        for ts in self.tasks.values():
+            print(f"{ts} - deps1: {ts.dependencies}, deps2: {ts.dependents}")
+        print("*"*100)
+        print("*"*100)
 
 
     def __repr__(self):

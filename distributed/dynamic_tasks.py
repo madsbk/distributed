@@ -27,7 +27,7 @@ def _apply_func(func, df, func_parts_encoded, rearguard_encoded, kwargs):
 
 def dd_dynamic_tasks_map(func, ddf, meta, name, **kwargs):
     n = ddf.npartitions
-    token = tokenize(ddf, func)
+    token = tokenize(ddf, func, meta, name)
     name = "%s-%s" % (name, token)
     df_parts = [(ddf._name, i) for i in range(n)]
     func_parts = [(name, i) for i in range(n)]
@@ -72,18 +72,18 @@ def dd_dynamic_tasks_map(func, ddf, meta, name, **kwargs):
     return ddf3
 
 
-def dynshuffle_kernel(df, parts, rearguard, col):
+def dynshuffle_kernel(df, parts, rearguard, col, ignore_index):
     worker = get_worker()
     client = get_client()
     myself = worker.get_current_task()
     assert myself in parts
 
-    # print(
-    #     f"[{worker.address}] _apply_func() - key: {repr(myself)}, df: {type(df)}, parts: {parts}, rearguard: {rearguard}, col: {repr(col)}"
-    # )
+    print(
+        f"[{worker.address}] _apply_func() - key: {repr(myself)}, df: {type(df)}, parts: {parts}, rearguard: {rearguard}, col: {repr(col)}"
+    )
 
     groups = shuffle_group(
-        df, col, 0, len(parts), len(parts), ignore_index=False, nfinal=len(parts)
+        df, col, 0, len(parts), len(parts), ignore_index=ignore_index, nfinal=len(parts)
     )
     assert len(groups) == len(parts)
 
@@ -123,5 +123,5 @@ def rearrange_by_column_dynamic_tasks(
 ):
     print(f"rearrange_by_column_dynamic_tasks() - column: {column}, \nddf: {df.compute()}")
     return dd_dynamic_tasks_map(
-        dynshuffle_kernel, df, df._meta, "dynshuffle", col=column
+        dynshuffle_kernel, df, df._meta, "dynshuffle", col=column, ignore_index=ignore_index
     )
