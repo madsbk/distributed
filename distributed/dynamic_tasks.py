@@ -1,13 +1,14 @@
 import pandas as pd
 from dask import persist
 from dask.base import tokenize
+from dask.highlevelgraph import HighLevelGraph
 import dask.dataframe as dd
 from distributed import Client, LocalCluster, get_worker, get_client
 from distributed.worker import dumps_task
 import pickle
 import dask
 from dask.datasets import timeseries
-from dask.dataframe.shuffle import shuffle, partitioning_index, shuffle_group, _concat
+from dask.dataframe.shuffle import shuffle, partitioning_index, shuffle_group, _concat, shuffle_group_2, shuffle_group_get, new_dd_object
 from dask.dataframe import _Frame
 import time
 from operator import getitem
@@ -73,7 +74,7 @@ def rearrange_by_column_dynamic_tasks(
         df, column, max_branch, npartitions, ignore_index
     )
     rearguard_token = "rearguard_%s" % kernel_token
-    res = df.map_partitions(
+    df2 = df.map_partitions(
         dynshuffle_kernel,
         npartitions=df.npartitions,
         kernel_token="_%s" % kernel_token,
@@ -82,6 +83,41 @@ def rearrange_by_column_dynamic_tasks(
         meta=df._meta,
         full_token=kernel_token,
     )
-    res = res.map_partitions(dummy_func, meta=res._meta, full_token=rearguard_token)
+    df2 = df2.map_partitions(dummy_func, meta=df2._meta, full_token=rearguard_token)
     print("HEJ")
-    return res
+
+    if npartitions is not None and npartitions != df.npartitions:
+        token = tokenize(df2, npartitions)
+        repartition_group_token = "repartition-group-" + token
+
+        dsk = {
+            (repartition_group_token, i): (
+                shuffle_group_2,
+                k,
+                column,
+                ignore_index,
+                npartitions,
+            )
+            for i, k in enumerate(df2.__dask_keys__())
+        }
+
+        repartition_get_name = "repartition-get-" + token
+
+        for p in range(npartitions):
+            dsk[(repartition_get_name, p)] = (
+                shuffle_group_get,
+                (repartition_group_token, p % df.npartitions),
+                p,
+            )
+
+        graph2 = HighLevelGraph.from_collections(
+            repartition_get_name, dsk, dependencies=[df2]
+        )
+        df3 = new_dd_object(
+            graph2, repartition_get_name, df2._meta, [None] * (npartitions + 1)
+        )
+    else:
+        df3 = df2
+        df3.divisions = (None,) * (df.npartitions + 1)
+
+    return df3
