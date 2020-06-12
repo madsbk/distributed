@@ -1391,6 +1391,25 @@ class Scheduler(ServerNode):
     # Administration #
     ##################
 
+    def to_graphviz(self, filename="graph.svg"):
+        import graphviz
+        from dask.dot import graphviz_to_file
+        g = graphviz.Digraph(graph_attr={"rankdir": "BT"})
+
+        for ts in self.tasks.values():
+            g.node(str(ts), shape="box")
+
+        edges = set()
+        for ts in self.tasks.values():
+            for dep in ts.dependencies:
+                edge = (str(ts), str(dep))
+                if edge not in edges:
+                    edges.add(edge)
+                    g.edge(edge[1], edge[0])
+
+        graphviz_to_file(g, filename, None)
+
+
     def __repr__(self):
         return '<Scheduler: "%s" processes: %d cores: %d>' % (
             self.address,
@@ -2092,7 +2111,10 @@ class Scheduler(ServerNode):
         cur_ts = self.tasks[cur_key]
         cur_dependents = list(cur_ts.dependents)
         rearguard_ts = self.tasks[rearguard_key]
-        assert rearguard_ts in cur_ts.dependents
+
+        # Check that we only create tasks once
+        if rearguard_ts not in cur_ts.dependents:
+            return
 
         # Create new tasks
         for task in new_tasks:
@@ -2105,12 +2127,30 @@ class Scheduler(ServerNode):
             else:
                 ts.priority = cur_ts.priority
             recomendations[key] = "waiting"
+
+        for task in new_tasks:
+            ts = self.tasks[task["key"]]
             for dep in task.get("dependencies", []):
+                if type(dep) == tuple:
+                    dep, alt_dep = dep
                 if dep in self.tasks:
                     ts.add_dependency(self.tasks[dep])
+                elif alt_dep in self.tasks:
+                    ts.add_dependency(self.tasks[alt_dep])
+
             for dep in task.get("dependents", []):
                 if dep in self.tasks:
-                    self.tasks[dep].add_dependency(ts)
+                    dep_ts = self.tasks[dep]
+                    dep_ts.add_dependency(ts)
+                    if dep_ts._state == "waiting":
+                         dep_ts.waiting_on.add(ts)
+                         ts.waiters.add(dep_ts)
+
+                    # Remove old base
+                    dep_ts.discard_dependency(cur_ts)
+                    dep_ts.waiting_on.discard(cur_ts)
+                    cur_ts.waiters.discard(dep_ts)
+
 
         # Remove the rearguard as a dependents of the current task
         rearguard_ts.discard_dependency(cur_ts)
