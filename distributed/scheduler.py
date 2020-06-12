@@ -1394,7 +1394,7 @@ class Scheduler(ServerNode):
     def to_graphviz(self, filename="graph.svg"):
         import graphviz
         from dask.dot import graphviz_to_file
-        g = graphviz.Digraph(graph_attr={"rankdir": "BT"})
+        g = graphviz.Digraph(graph_attr={"rankdir": "TB"})
 
         for ts in self.tasks.values():
             g.node(str(ts), shape="box")
@@ -2168,6 +2168,8 @@ class Scheduler(ServerNode):
 
         # Finally transition all recomendations
         self.transitions(recomendations)
+
+        self.to_graphviz()
 
     def stimulus_task_finished(self, key=None, worker=None, **kwargs):
         """ Mark that a task has finished execution on a particular worker """

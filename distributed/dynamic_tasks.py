@@ -20,7 +20,7 @@ def _rearguard():
 
 
 def dynshuffle_kernel(
-    df, rank, npartitions, name, max_branch, col, ignore_index, nfinal
+    df, rank, npartitions, name, max_branch, col, ignore_index, nfinal, meta_tasks
 ):
     worker = get_worker()
     client = get_client()
@@ -87,6 +87,7 @@ def create_tasks_for_input(
     ignore_index,
     name,
     nfinal,
+    meta_task,
 ):
 
     shuffle_join_name = "shuffle-join-" + token
@@ -94,18 +95,27 @@ def create_tasks_for_input(
     shuffle_split_name = "shuffle-split-" + token
     shuffle_token = "shuffle-" + token
 
-    print(
-        f"[{worker_address}] kernel() - myself: {repr(myself)}, rank: {rank}/{npartitions-1}, k:{k}, inputs: {len(inputs)}, token: {token}"
-    )
+    # print(
+    #     f"[{worker_address}] kernel() - myself: {repr(myself)}, rank: {rank}/{npartitions-1}, k:{k}, inputs: {len(inputs)}, token: {token}"
+    # )
 
     new_tasks = []
-    new_tasks.append(
-        {
-            "key": str((shuffle_join_name, 0, inp)),
-            "dependencies": [myself],
-            "task": dumps_task((_noop, myself)),
-        }
-    )
+    if rank < npartitions:
+        new_tasks.append(
+            {
+                "key": str((shuffle_join_name, 0, inp)),
+                "dependencies": [myself],
+                "task": dumps_task((_noop, myself)),
+            }
+        )
+    else:
+        new_tasks.append(
+            {
+                "key": str((shuffle_join_name, 0, inp)),
+                "dependencies": [myself],
+                "task": meta_task,
+            }
+        )
 
     for stage in range(1, stages + 1):
         new_tasks.append(
@@ -156,7 +166,7 @@ def create_tasks_for_input(
 
 
 def dynshuffle_staging_kernel(
-    df, rank, npartitions, name, max_branch, col, ignore_index, nfinal
+    df, rank, npartitions, name, max_branch, col, ignore_index, nfinal, meta_task
 ):
     worker = get_worker()
     client = get_client()
@@ -176,7 +186,7 @@ def dynshuffle_staging_kernel(
     inputs = [tuple(digit(i, j, k) for j in range(stages)) for i in range(k ** stages)]
     if rank == npartitions - 1:
         new_tasks = []
-        for inp in inputs[npartitions - 1 :]:
+        for i, inp in enumerate(inputs[rank:]):
             new_tasks.extend(
                 create_tasks_for_input(
                     inp,
@@ -186,13 +196,14 @@ def dynshuffle_staging_kernel(
                     stages,
                     myself,
                     worker.address,
-                    rank,
+                    rank + i,
                     npartitions,
                     inputs,
                     col,
                     ignore_index,
                     name,
                     nfinal,
+                    meta_task
                 )
             )
     else:
@@ -211,6 +222,7 @@ def dynshuffle_staging_kernel(
             ignore_index,
             name,
             nfinal,
+            meta_task
         )
 
     client.sync(
@@ -261,16 +273,17 @@ def dd_dynamic_tasks_map(func, ddf, name, **kwargs):
 
 
 def rearrange_by_column_dynamic_tasks(
-    df, column, max_branch=32, npartitions=None, ignore_index=False
+    df, column, max_branch=None, npartitions=None, ignore_index=False
 ):
     df2 = dd_dynamic_tasks_map(
         dynshuffle_staging_kernel,
         df,
         "dynshuffle",
-        max_branch=max_branch,
+        max_branch=max_branch if max_branch else 32,
         col=column,
         ignore_index=ignore_index,
         nfinal=npartitions if npartitions else df.npartitions,
+        meta_task = dumps_task(df._meta)
     )
 
     # If the npartitions doesn't match, we use the old shuffle code for now.
