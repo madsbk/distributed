@@ -71,7 +71,7 @@ def dynshuffle_kernel(
                     (getitem, str((f"{name}-{token}", stage, getitem_key)), inp[stage])
                 ),
                 "priority": 0,
-                "kill-after": [(str((f"{name}-{token}", stage, getitem_key)), k+1)],
+                "kill-after": [(str((f"{name}-{token}", stage, getitem_key)), k)],
             }
         )
     getitem_keys = [t["key"] for t in new_tasks]
@@ -98,7 +98,6 @@ def dynshuffle_kernel(
 def rearrange_by_column_dynamic_tasks(
     df, column, max_branch=None, npartitions=None, ignore_index=False
 ):
-    max_branch = 2
     token = tokenize(df, column, max_branch, npartitions, ignore_index)
     max_branch = max_branch if max_branch else 32
     n = df.npartitions
@@ -162,10 +161,6 @@ def rearrange_by_column_dynamic_tasks(
         df.divisions,
     )
 
-    # df2.visualize(filename=f"graph2-{token}.svg")
-    # df2.compute(optimize_graph=False)
-    # assert False
-
     # If the npartitions doesn't match, we use the old shuffle code for now.
     if npartitions is not None and npartitions != df.npartitions:
         token = tokenize(df2, npartitions)
@@ -201,4 +196,6 @@ def rearrange_by_column_dynamic_tasks(
         df3 = df2
         df3.divisions = (None,) * (df.npartitions + 1)
 
+
+    print(f"rearrange_by_column_dynamic_tasks() - len(dsk): {len(dsk)}")
     return df3

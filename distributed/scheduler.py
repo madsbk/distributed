@@ -2144,7 +2144,6 @@ class Scheduler(ServerNode):
                 to_kill = self.tasks[to_kill]
                 if after == len([d for d in to_kill.dependents if "rearguard" not in d.key]):
                     for dep in [d for d in to_kill.dependents if "rearguard" in d.key]:
-                        print(f"killing: {to_kill}, rearguard: {dep}, to_kill.dependents:{to_kill.dependents}")
                         dep.discard_dependency(to_kill)
                         dep.waiting_on.discard(to_kill)
                         to_kill.waiters.discard(dep)
