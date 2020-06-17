@@ -91,6 +91,10 @@ from .worker import dumps_task
 logger = logging.getLogger(__name__)
 
 
+_counter = [0]
+_cur_keys = set()
+_flag = [True]
+
 LOG_PDB = dask.config.get("distributed.admin.pdb-on-err")
 DEFAULT_DATA_SIZE = parse_bytes(
     dask.config.get("distributed.scheduler.default-data-size")
@@ -1391,6 +1395,25 @@ class Scheduler(ServerNode):
     # Administration #
     ##################
 
+    def to_graphviz(self, filename="graph.svg"):
+        import graphviz
+        from dask.dot import graphviz_to_file
+        g = graphviz.Digraph(graph_attr={"rankdir": "TB"})
+
+        for ts in self.tasks.values():
+            g.node(str(ts), shape="box")
+
+        edges = set()
+        for ts in self.tasks.values():
+            for dep in ts.dependencies:
+                edge = (str(ts), str(dep))
+                if edge not in edges:
+                    edges.add(edge)
+                    g.edge(edge[1], edge[0])
+
+        graphviz_to_file(g, filename, None)
+
+
     def __repr__(self):
         return '<Scheduler: "%s" processes: %d cores: %d>' % (
             self.address,
@@ -2092,11 +2115,19 @@ class Scheduler(ServerNode):
         cur_ts = self.tasks[cur_key]
         cur_dependents = list(cur_ts.dependents)
         rearguard_ts = self.tasks[rearguard_key]
+
+        if rearguard_ts not in cur_ts.dependents:
+             #self.to_graphviz()
+             #print(f"rearguard_ts: {rearguard_ts}, cur_ts{cur_ts}")
+             return
+
+
         assert rearguard_ts in cur_ts.dependents
 
         # Create new tasks
         for task in new_tasks:
             key = task["key"]
+            #print(f"new_tasks: {key}")
             assert key not in self.tasks
             ts = self.new_task(key, task["task"], "released")
             priority = task.get("priority")
@@ -2113,9 +2144,9 @@ class Scheduler(ServerNode):
                     self.tasks[dep].add_dependency(ts)
 
         # Remove the rearguard as a dependents of the current task
-        rearguard_ts.discard_dependency(cur_ts)
-        rearguard_ts.waiting_on.discard(cur_ts)
-        cur_ts.waiters.discard(rearguard_ts)
+        # rearguard_ts.discard_dependency(cur_ts)
+        # rearguard_ts.waiting_on.discard(cur_ts)
+        # cur_ts.waiters.discard(rearguard_ts)
 
         # Set the dependency and function input of the rearguard
         ts = self.tasks[rearguard_input]
@@ -2128,6 +2159,8 @@ class Scheduler(ServerNode):
 
         # Finally transition all recomendations
         self.transitions(recomendations)
+
+        # self.to_graphviz()
 
     def stimulus_task_finished(self, key=None, worker=None, **kwargs):
         """ Mark that a task has finished execution on a particular worker """
