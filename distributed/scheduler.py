@@ -2113,12 +2113,11 @@ class Scheduler(ServerNode):
 
         recomendations = {}
         cur_ts = self.tasks[cur_key]
-        cur_dependents = list(cur_ts.dependents)
         rearguard_ts = self.tasks[rearguard_key]
 
         if rearguard_ts not in cur_ts.dependents:
              #self.to_graphviz()
-             #print(f"rearguard_ts: {rearguard_ts}, cur_ts{cur_ts}")
+             print(f"rearguard_ts: {rearguard_ts}, cur_ts{cur_ts}")
              return
 
 
@@ -2137,11 +2136,19 @@ class Scheduler(ServerNode):
                 ts.priority = cur_ts.priority
             recomendations[key] = "waiting"
             for dep in task.get("dependencies", []):
-                if dep in self.tasks:
-                    ts.add_dependency(self.tasks[dep])
-            for dep in task.get("dependents", []):
-                if dep in self.tasks:
-                    self.tasks[dep].add_dependency(ts)
+                dep_ts = self.tasks[dep]
+                ts.add_dependency(self.tasks[dep])
+
+
+            for to_kill, after in task.get("kill-after", []):
+                to_kill = self.tasks[to_kill]
+                if after == len(to_kill.dependents):
+                    for dep in list(to_kill.dependents):
+                        if "rearguard" in dep.key:
+                            #print(f"killing: {to_kill}, deps: {to_kill.dependents}")
+                            dep.discard_dependency(to_kill)
+                            dep.waiting_on.discard(to_kill)
+                            to_kill.waiters.discard(dep)
 
         # Remove the rearguard as a dependents of the current task
         # rearguard_ts.discard_dependency(cur_ts)
@@ -2160,7 +2167,7 @@ class Scheduler(ServerNode):
         # Finally transition all recomendations
         self.transitions(recomendations)
 
-        # self.to_graphviz()
+        self.to_graphviz()
 
     def stimulus_task_finished(self, key=None, worker=None, **kwargs):
         """ Mark that a task has finished execution on a particular worker """

@@ -71,6 +71,7 @@ def dynshuffle_kernel(
                     (getitem, str((f"{name}-{token}", stage, getitem_key)), inp[stage])
                 ),
                 "priority": 0,
+                "kill-after": [(str((f"{name}-{token}", stage, getitem_key)), k+1)],
             }
         )
     getitem_keys = [t["key"] for t in new_tasks]
@@ -97,7 +98,7 @@ def dynshuffle_kernel(
 def rearrange_by_column_dynamic_tasks(
     df, column, max_branch=None, npartitions=None, ignore_index=False
 ):
-    #max_branch = 2
+    max_branch = 2
     token = tokenize(df, column, max_branch, npartitions, ignore_index)
     max_branch = max_branch if max_branch else 32
     n = df.npartitions
@@ -121,10 +122,8 @@ def rearrange_by_column_dynamic_tasks(
                     start = (df._name, rank)
                 else:
                     start = df._meta
-                    #start = (df._name, df.npartitions-1)
             else:
                 start = (f"rearguard_{name}_{stage-1}-{token}", rank)
-            #print((f"{name}-{token}", stage, inp))
             dsk[(f"{name}-{token}", stage, inp)] = (
                 dynshuffle_kernel,
                 start,
