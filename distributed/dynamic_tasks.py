@@ -68,7 +68,7 @@ def dynshuffle_kernel(
                 "key": str((shuffle_getitem_name, stage, rank, i)),
                 "dependencies": [str((f"{name}-{token}", stage, getitem_key))],
                 "task": dumps_task(
-                    (_getitem, str((f"{name}-{token}", stage, getitem_key)), inp[stage])
+                    (getitem, str((f"{name}-{token}", stage, getitem_key)), inp[stage])
                 ),
                 "priority": 0,
             }
@@ -79,7 +79,7 @@ def dynshuffle_kernel(
         {
             "key": str((shuffle_concat_name, stage, rank)),
             "dependencies": getitem_keys,
-            "task": dumps_task((__concat, getitem_keys)),
+            "task": dumps_task((_concat, getitem_keys)),
         }
     )
 
