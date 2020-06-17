@@ -2142,13 +2142,12 @@ class Scheduler(ServerNode):
 
             for to_kill, after in task.get("kill-after", []):
                 to_kill = self.tasks[to_kill]
-                if after == len(to_kill.dependents):
-                    for dep in list(to_kill.dependents):
-                        if "rearguard" in dep.key:
-                            #print(f"killing: {to_kill}, deps: {to_kill.dependents}")
-                            dep.discard_dependency(to_kill)
-                            dep.waiting_on.discard(to_kill)
-                            to_kill.waiters.discard(dep)
+                if after == len([d for d in to_kill.dependents if "rearguard" not in d.key]):
+                    for dep in [d for d in to_kill.dependents if "rearguard" in d.key]:
+                        print(f"killing: {to_kill}, rearguard: {dep}, to_kill.dependents:{to_kill.dependents}")
+                        dep.discard_dependency(to_kill)
+                        dep.waiting_on.discard(to_kill)
+                        to_kill.waiters.discard(dep)
 
         # Remove the rearguard as a dependents of the current task
         # rearguard_ts.discard_dependency(cur_ts)
@@ -2167,7 +2166,7 @@ class Scheduler(ServerNode):
         # Finally transition all recomendations
         self.transitions(recomendations)
 
-        self.to_graphviz()
+        #self.to_graphviz()
 
     def stimulus_task_finished(self, key=None, worker=None, **kwargs):
         """ Mark that a task has finished execution on a particular worker """
