@@ -30,6 +30,7 @@ from dask.core import flatten, get_dependencies
 from dask.optimization import SubgraphCallable
 from dask.compatibility import apply
 from dask.utils import ensure_dict, format_bytes, funcname
+from dask.highlevelgraph import HighLevelGraph
 
 from tlz import first, groupby, merge, valmap, keymap, partition_all
 
@@ -2555,15 +2556,18 @@ class Client:
         actors=None,
     ):
         with self._refcount_lock:
+            if not isinstance(dsk, HighLevelGraph):
+                dsk = HighLevelGraph.from_collections(id(dsk), dsk, dependencies=())
+
             if resources:
                 resources = self._expand_resources(
-                    resources, all_keys=itertools.chain(dsk, keys)
+                    resources, all_keys=itertools.chain(dsk.keyset(), keys)
                 )
                 resources = {tokey(k): v for k, v in resources.items()}
 
             if retries:
                 retries = self._expand_retries(
-                    retries, all_keys=itertools.chain(dsk, keys)
+                    retries, all_keys=itertools.chain(dsk.keyset(), keys)
                 )
 
             if actors is not None and actors is not True and actors is not False:
