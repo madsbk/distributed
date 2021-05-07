@@ -1364,7 +1364,11 @@ class Worker(ServerNode):
             return {"status": "busy"}
 
         self.outgoing_current_count += 1
-        data = {k: self.data[k] for k in keys if k in self.data}
+        data = {}
+        if hasattr(self.data, "getitem_for_comm"):
+            data = {k: self.data.getitem_for_comm(k) for k in keys if k in self.data}
+        else:
+            data = {k: self.data[k] for k in keys if k in self.data}
 
         if len(data) < len(keys):
             for k in set(keys) - set(data):
