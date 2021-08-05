@@ -2662,6 +2662,7 @@ class SchedulerState:
         typename: str = None,
         worker=None,
         startstops=None,
+        resource_restrictions: dict = None,
         **kwargs,
     ):
         ws: WorkerState
@@ -2765,7 +2766,14 @@ class SchedulerState:
             _remove_from_processing(self, ts)
 
             _add_to_memory(
-                self, ts, ws, recommendations, client_msgs, type=type, typename=typename
+                self,
+                ts,
+                ws,
+                recommendations,
+                client_msgs,
+                type=type,
+                typename=typename,
+                resource_restrictions=resource_restrictions,
             )
 
             if self._validate:
@@ -7595,6 +7603,7 @@ def _add_to_memory(
     client_msgs: dict,
     type=None,
     typename: str = None,
+    resource_restrictions: dict = None,
 ):
     """
     Add *ts* to the set of in-memory tasks.
@@ -7605,6 +7614,13 @@ def _add_to_memory(
     ts._who_has.add(ws)
     ws._has_what[ts] = None
     ws._nbytes += ts.get_nbytes()
+
+    print("_add_to_memory() - resource_restrictions: ", resource_restrictions)
+
+    if resource_restrictions is not None:
+        if ts._resource_restrictions is None:
+            ts._resource_restrictions = {}
+        ts._resource_restrictions.update(resource_restrictions)
 
     deps: list = list(ts._dependents)
     if len(deps) > 1:
@@ -7618,6 +7634,10 @@ def _add_to_memory(
             s.discard(ts)
             if not s:  # new task ready to run
                 recommendations[dts._key] = "processing"
+            if resource_restrictions is not None:
+                if dts._resource_restrictions is None:
+                    dts._resource_restrictions = {}
+                dts._resource_restrictions.update(resource_restrictions)
 
     for dts in ts._dependencies:
         s = dts._waiters

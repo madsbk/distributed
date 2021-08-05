@@ -409,7 +409,7 @@ class Worker(ServerNode):
         lifetime_restart=None,
         **kwargs,
     ):
-        self.tasks = dict()
+        self.tasks: Dict[str, TaskState] = dict()
         self.waiting_for_data_count = 0
         self.has_what = defaultdict(set)
         self.pending_data_per_worker = defaultdict(deque)
@@ -1975,7 +1975,7 @@ class Worker(ServerNode):
         if self.validate:
             assert all(v >= 0 for v in self.available_resources.values())
 
-    def transition_executing_done(self, ts, value=no_value, report=True):
+    def transition_executing_done(self, ts: TaskState, value=no_value, report=True):
         try:
             if self.validate:
                 assert ts.state == "executing" or ts.key in self.long_running
@@ -1986,6 +1986,20 @@ class Worker(ServerNode):
             if ts.resource_restrictions is not None:
                 for resource, quantity in ts.resource_restrictions.items():
                     self.available_resources[resource] += quantity
+            if "GPU" in self.total_resources:
+                from dask_cuda.is_device_object import is_device_object
+
+                print(
+                    "transition_executing_done: ",
+                    ts,
+                    type(value),
+                    is_device_object(value),
+                )
+                if is_device_object(value):
+                    if ts.resource_restrictions is None:
+                        ts.resource_restrictions = {}
+                    if "GPU" not in ts.resource_restrictions:
+                        ts.resource_restrictions["GPU"] = 1
 
             if ts.state == "executing":
                 self.executing_count -= 1
@@ -2191,7 +2205,7 @@ class Worker(ServerNode):
                 pdb.set_trace()
             raise
 
-    def send_task_state_to_scheduler(self, ts):
+    def send_task_state_to_scheduler(self, ts: TaskState):
         if ts.key in self.data or self.actors.get(ts.key):
             typ = ts.type
             if ts.nbytes is None or typ is None:
@@ -2217,6 +2231,7 @@ class Worker(ServerNode):
                 "type": typ_serialized,
                 "typename": typename(typ),
                 "metadata": ts.metadata,
+                "resource_restrictions": ts.resource_restrictions,
             }
         elif ts.exception is not None:
             d = {
