@@ -7615,8 +7615,6 @@ def _add_to_memory(
     ws._has_what[ts] = None
     ws._nbytes += ts.get_nbytes()
 
-    print("_add_to_memory() - resource_restrictions: ", resource_restrictions)
-
     if resource_restrictions is not None:
         if ts._resource_restrictions is None:
             ts._resource_restrictions = {}
