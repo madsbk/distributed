@@ -1986,20 +1986,20 @@ class Worker(ServerNode):
             if ts.resource_restrictions is not None:
                 for resource, quantity in ts.resource_restrictions.items():
                     self.available_resources[resource] += quantity
-            if "GPU" in self.total_resources:
-                from dask_cuda.is_device_object import is_device_object
+            # if "GPU" in self.total_resources:
+            #     from dask_cuda.is_device_object import is_device_object
 
-                print(
-                    "transition_executing_done: ",
-                    ts,
-                    type(value),
-                    is_device_object(value),
-                )
-                if is_device_object(value):
-                    if ts.resource_restrictions is None:
-                        ts.resource_restrictions = {}
-                    if "GPU" not in ts.resource_restrictions:
-                        ts.resource_restrictions["GPU"] = 1
+            #     print(
+            #         "transition_executing_done: ",
+            #         ts,
+            #         type(value),
+            #         is_device_object(value),
+            #     )
+            #     if is_device_object(value):
+            #         if ts.resource_restrictions is None:
+            #             ts.resource_restrictions = {}
+            #         if "GPU" not in ts.resource_restrictions:
+            #             ts.resource_restrictions["GPU"] = 1
 
             if ts.state == "executing":
                 self.executing_count -= 1

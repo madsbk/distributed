@@ -80,6 +80,7 @@ def pandas_to_cudf(df: pd.Series):
 
 type_converters = {pd.Series: cudf_to_pandas, cudf.Series: pandas_to_cudf}
 
+from dask.dataframe.shuffle import shuffle
 
 async def test(args):
     size = args.nbytes // 8
@@ -95,7 +96,8 @@ async def test(args):
     t1 = time.time()
     print("*" * 100, "STARTING TEST", "*" * 100)
 
-    res = df.map_partitions(work, meta=df._meta)
+    #res = df.map_partitions(work, meta=df._meta)
+    res = df.repartition(npartitions=1)
 
     res = res.persist()
     await wait(res)
