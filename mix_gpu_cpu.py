@@ -96,13 +96,13 @@ async def test(args):
     t1 = time.time()
     print("*" * 100, "STARTING TEST", "*" * 100)
 
-    #res = df.map_partitions(work, meta=df._meta)
+    res = df.map_partitions(work, meta=df._meta)
     #res = df.repartition(npartitions=1)
 
-    df = df.to_frame("data")
-    res = shuffle(
-        df, "data", shuffle="tasks", npartitions=10
-    )
+    # df = df.to_frame("data")
+    # res = shuffle(
+    #     df, "data", shuffle="tasks", npartitions=10
+    # )
 
     res = res.persist()
     await wait(res)
@@ -114,25 +114,24 @@ async def main(s: Scheduler, c: Client, args):
     cpu_workers = []
     gpu_workers = []
 
-    for _ in range(args.cpus):
-        cpu_workers.append(
-            Nanny(
-                s.address,
-                nthreads=1,
-                memory_limit="20GB",
-                resources={"CPU": 1, "GPU": 0},
-            )
-        )
-        await cpu_workers[-1].start()
+    # for _ in range(args.cpus):
+    #     cpu_workers.append(
+    #         Nanny(
+    #             s.address,
+    #             nthreads=1,
+    #             memory_limit="20GB",
+    #         )
+    #     )
+    #     await cpu_workers[-1].start()
 
     for i in range(args.gpus):
         visible_devices = cuda_visible_devices(i)
         gpu_workers.append(
             Nanny(
                 s.address,
-                nthreads=1,
+                nthreads=1+args.cpus,
                 memory_limit="20GB",
-                resources={"CPU": 0, "GPU": 1},
+                resources={"GPU": 1},
                 env={"CUDA_VISIBLE_DEVICES": visible_devices},
                 preload=["dask_cuda.initialize"],
                 preload_argv=["--create-cuda-context"],
