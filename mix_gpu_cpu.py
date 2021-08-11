@@ -97,7 +97,12 @@ async def test(args):
     print("*" * 100, "STARTING TEST", "*" * 100)
 
     #res = df.map_partitions(work, meta=df._meta)
-    res = df.repartition(npartitions=1)
+    #res = df.repartition(npartitions=1)
+
+    df = df.to_frame("data")
+    res = shuffle(
+        df, "data", shuffle="tasks", npartitions=10
+    )
 
     res = res.persist()
     await wait(res)
