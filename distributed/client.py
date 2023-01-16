@@ -1755,8 +1755,6 @@ class Client(SyncMethodMixin):
                 with suppress(CommClosedError):
                     await self.scheduler.terminate()
 
-        await self._close()
-
     def shutdown(self):
         """Shut down the connected scheduler and workers
 
